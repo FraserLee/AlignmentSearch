@@ -32,7 +32,6 @@ class Link:
 # -------------------------------- non-web-code --------------------------------
 
 import pickle
-from typing import List, Tuple
 import os
 
 
@@ -67,7 +66,7 @@ def get_embedding(text: str) -> np.ndarray:
     return result["data"][0]["embedding"]
 
 
-def get_top_k_blocks(user_query: str, k: int, HyDE: bool = False) -> List[Link]:
+def get_top_k_blocks(user_query: str, k: int, HyDE: bool = False):
     """Get the top k blocks that are most semantically similar to the query, using the provided dataset. 
 
     Args:

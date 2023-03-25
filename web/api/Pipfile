@@ -1,0 +1,7 @@
+[packages]
+openai   = "0.27.2"
+numpy    = "1.24.2"
+tenacity = "8.1.0"
+
+[requires]
+python_version = "3.9"

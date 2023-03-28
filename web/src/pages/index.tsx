@@ -29,6 +29,7 @@ const Home: NextPage = () => {
 
                 <p className="mt-4">Get the most semantic similar results to a query:</p>
                 <SearchBox />
+                {/* <StreamButton /> */}
             </main>
         </>
     );
@@ -125,6 +126,63 @@ const SearchBox: React.FC = () => {
         </>
     );
 };
+
+
+// a button which, when pressed, opens a SSE to /api/stream and gradually
+// fills in results in a <p> below
+
+// const StreamButton: React.FC = () => {
+//
+//     const [streaming, setStreaming] = useState(false);
+//     const [results, setResults] = useState<string[]>([]);
+//
+//     const start_stream = async () => {
+//         setStreaming(true);
+//
+//         const res = await fetch("/api/stream", {
+//             method: "GET",
+//             headers: { "Content-Type": "application/json", },
+//         })
+//
+//         if (!res.ok) {
+//             setStreaming(false);
+//             return "load failure: " + res.status;
+//         }
+//
+//         const reader = res.body!.getReader();
+//         let decoder = new TextDecoder();
+//
+//         while (true) {
+//             const { done, value } = await reader.read();
+//             if (done) {
+//                 break;
+//             }
+//             const text = decoder.decode(value);
+//             setResults((prev) => [...prev, text]);
+//         }
+//
+//         setStreaming(false);
+//
+//     };
+//
+//     return (
+//         <>
+//             <button className="ml-2" type="submit" disabled={streaming} onClick={start_stream}>
+//                 {streaming ? "Streaming..." : "Stream"}
+//             </button>
+//
+//             <p>
+//                 {results.map((result, i) => (
+//                     <span key={i}>{result}</span>
+//                 ))}
+//             </p>
+//         </>
+//     );
+// };
+
+
+
+
 
 
 export default Home;

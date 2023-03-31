@@ -45,16 +45,22 @@ class Dataset:
             rate_limit_per_minute: int = 3_500,  # Rate limit for the OpenAI API.
             min_tokens_per_block: int = 300, # Minimum number of tokens per block.
             max_tokens_per_block: int = 400, # Maximum number of tokens per block.
+            embedding_batch_size: int = 200,  # Number of texts to embed at once.
             fraction_of_articles_to_use: float = 1.0,  # Fraction of articles to use. If 1.0, use all articles.
+            path_to_dataset_pkl: str = PATH_TO_DATASET_PKL,  # Path to the dataset .pkl file.
+            starting_article_index: int = -1  # Starting article index. If -1, start from the beginning.
         ):
         self.jsonl_data_path = jsonl_data_path
         self.custom_sources = custom_sources
         self.rate_limit_per_minute = rate_limit_per_minute
         self.delay_in_seconds = 60.0 / self.rate_limit_per_minute
         self.fraction_of_articles_to_use = fraction_of_articles_to_use
+        self.path_to_dataset_pkl = path_to_dataset_pkl
+        self.starting_article_index = starting_article_index
         
         self.min_tokens_per_block = min_tokens_per_block  # for the text splitter
         self.max_tokens_per_block = max_tokens_per_block  # for the text splitter
+        self.embedding_batch_size = embedding_batch_size  # for the text splitter
         
         self.metadata: List[Tuple[str]] = []  # List of tuples, each containing the title, author, date, URL, and tags of an article.
         self.embedding_strings: List[str] = []  # List of strings, each being a few paragraphs from a single article (not exceeding max_tokens_per_block tokens).
@@ -74,6 +80,8 @@ class Dataset:
         
         self.sources_so_far: List[str] = []
         self.info_types: Dict[str, List[str]] = {}
+        
+        self.embeddings = None
     
     def extract_info_from_article(self, article: Dict[str, Any]) -> Tuple[str]:
         """
@@ -135,9 +143,11 @@ class Dataset:
         return (title, author, date_published, url, tags, text)
            
     def get_alignment_texts(self):
+        start = time.time()
+        
         text_splitter = TokenSplitter(self.min_tokens_per_block, self.max_tokens_per_block)
         with jsonlines.open(self.jsonl_data_path, "r") as reader:
-            for entry in tqdm(reader):
+            for entry_idx, entry in enumerate(tqdm(reader)):
                 try:
                     if 'source' not in entry: 
                         if 'url' in entry and entry['url'] == "https://www.cold-takes.com/": 
@@ -158,16 +168,13 @@ class Dataset:
                     if (self.custom_sources is not None) and (entry['source'] not in self.custom_sources):
                         continue
 
-                    
-                    if entry["source"] == 'alignment forum':
+                    """if entry["source"] == 'alignment forum':
                         if int(entry['score'].replace('−', '-')) < 70: continue
                     elif entry["source"] == 'lesswrong':
                         if int(entry['score'].replace('−', '-')) < 150: continue
                     elif entry["source"] == 'arxiv':
                         if 'citation_level' != '0': continue
 
-                    # Dict describing the proportion of each source we want:
-                    # E.g.: {'arxiv': 0.5, 'youtube': 0.5, 'lesswrong': 1.0}
                     desired_source_proportions = {
                         "https://aipulse.org": 1,
                         "ebook": 0,
@@ -203,47 +210,38 @@ class Dataset:
                     random_number = random.random()
                     if random_number > desired_source_proportions[entry['source']]:
                         continue
-                    
+                    """
                     # if we specified a fraction of articles to use, only use that fraction from the remaining articles
                     random_number = random.random()
                     if random_number > self.fraction_of_articles_to_use:
                         continue
+
                     
-                    # Get title, author, date, URL, tags, and text
                     title, author, date_published, url, tags, text = self.extract_info_from_article(entry)
                     
-                    # If there's less than 2 of 'title', 'author' and 'url', ignore this text
-                    if (((title or '').strip() == '') + ((author or '').strip() == '') + ((url or '').strip() == '')) > 1:
-                        print(f'{entry["source"]}')
-                        continue
+                    if (((title or '').strip() == '') + ((author or '').strip() == '') + ((url or '').strip() == '')) > 1:continue  # If there's less than 2 of 'title', 'author' and 'url', ignore this text
+                    if len(text) < 500:continue  # If the text is too short, ignore this text
                     
-                    #if the text is too short, ignore this text
-                    if len(text) < 500:
-                        continue
-
-                    #we're keeping the text so we inc the aticle count
+                    signature = ""
+                    if title: signature += f"Title: {title}; "
+                    else: signature += f"Title: None; "
+                    if author: signature += f"Author: {author}"
+                    else: signature += f"Author: None"
+                    signature = signature.replace("\n", " ")
+                    
+                    # We're keeping the text so we inc the aticle count
                     self.articles_count[entry['source']] += 1
                     self.total_articles_count += 1
                     
-                    # Get signature
-                    signature = ""
-                    if title: signature += f"Title: {title}, "
-                    else: signature += f"Title: None, "
-                    if author: signature += f"Author: {author}"
-                    else: signature += f"Author: None"
-                    # if date_published: signature += f"Date published: {date_published}, "
-                    # if url: signature += f"URL: {url}, "
-                    # if tags: signature += f"Tags: {tags}, "  # Temporary decision to not include tags in the signature
-                    # if signature: signature = signature[:-2]
-                    signature = signature.replace("\n", " ")
-                    
-                    # Add info to metadata and embedding strings
+                    if self.total_articles_count % 1000 == 0:
+                        print(f"\n{self.total_articles_count} articles in {time.time() - start:.2f} seconds.")
+                                        
+                    # Add info to metadata and embedding strings, and update counts
                     self.metadata.append((title, author, date_published, url, tags))
                     blocks = text_splitter.split(text, signature)
                     self.embedding_strings.extend(blocks)
                     self.embeddings_metadata_index.extend([self.total_articles_count-1] * len(blocks))
                     
-                    # Update counts
                     self.total_char_count += len(text)
                     self.total_word_count += len(text.split())
                     self.total_sentence_count += len(split_into_sentences(text))
@@ -253,8 +251,19 @@ class Dataset:
                     if str(e) not in error_count_dict:
                         error_count_dict[str(e)] = 0
                     error_count_dict[str(e)] += 1
-
-    def get_embeddings(self):
+        
+        print(f"\nArticle count: {len(self.metadata)}")
+        print(f"Total char count: {self.total_char_count}")
+        print(f"Total word count: {self.total_word_count}")
+        print(f"Total sentence count: {self.total_sentence_count}")
+        print(f"Total block count: {self.total_block_count}")
+        print(f"Total time: {time.time() - start:.2f} seconds")
+        
+        self.embeddings = np.zeros((len(self.embedding_strings), LEN_EMBEDDINGS), dtype=np.float32)
+        self.get_embeddings()
+        self.save_data(self.path_to_dataset_pkl)
+        
+    def get_embeddings(self, start_idx: int = 0):
         def get_embeddings_at_index(texts: str, batch_idx: int, batch_size: int = 200): # int, np.ndarray
             embeddings = np.zeros((batch_size, 1536))
             openai_output = openai.Embedding.create(
@@ -265,43 +274,56 @@ class Dataset:
                 embeddings[i] = embedding['embedding']
             return batch_idx, embeddings
 
-        batch_size = 500
-        rate_limit = 3500 / 60  # Maximum embeddings per second
-
+        batch_size = self.embedding_batch_size
+        rate_limit = self.rate_limit_per_minute / 60  # Maximum embeddings per second
+        save_interval = 10000
+        
         start = time.time()
-        self.embeddings = np.zeros((len(self.embedding_strings), LEN_EMBEDDINGS))
-
+        
+        # if self.embeddings is None:
+        #     self.embeddings = np.zeros((len(self.embedding_strings), LEN_EMBEDDINGS), dtype=np.float32)
+        # else:
+        #     self.embeddings = np.resize(self.embeddings, (len(self.embedding_strings), LEN_EMBEDDINGS))
+        
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(
                 get_embeddings_at_index, 
                 self.embedding_strings[batch_idx:batch_idx+batch_size], 
                 batch_idx,
                 len(self.embedding_strings[batch_idx:batch_idx+batch_size])
-            ) for batch_idx in range(0, len(self.embedding_strings), batch_size)]
+            ) for batch_idx in range(start_idx, len(self.embedding_strings), batch_size)]
             num_completed = 0
             for future in concurrent.futures.as_completed(futures):
                 batch_idx, embeddings = future.result()
                 num_completed += embeddings.shape[0]
                 self.embeddings[batch_idx:batch_idx+embeddings.shape[0]] = embeddings
 
+                if num_completed % save_interval == 0:
+                    if not np.any(self.embeddings == 0):
+                        self.save_embeddings('embeddings', num_completed - save_interval, num_completed)
+                    else:
+                        print(f"Skipped saving embeddings because there are still zeros in the embeddings array.")
+                        time.sleep(10)
+                        self.save_embeddings('embeddings', num_completed - save_interval, num_completed)
+                
                 elapsed_time = time.time() - start
                 expected_time = num_completed / rate_limit
                 sleep_time = max(expected_time - elapsed_time, 0)
                 time.sleep(sleep_time)
 
-                print(f"Completed {num_completed}/{len(self.embedding_strings)} embeddings in {elapsed_time:.2f} seconds.")
+                print(f"Completed {num_completed}/{len(self.embedding_strings)-start_idx} embeddings in {elapsed_time:.2f} seconds.")
+        
+        if num_completed % save_interval != 0:
+            last_saved_idx = num_completed - (num_completed % save_interval)
+            self.save_embeddings('embeddings', last_saved_idx, num_completed)
 
-    def save_embeddings(self, path: str):
-        np.save(path, self.embeddings)
-        
-    def load_embeddings(self, path: str):
-        self.embeddings = np.load(path)
-        
-    def save_class(self, path: str = PATH_TO_DATASET_PKL):
-        # Save the class to a pickle file
-        print(f"Saving class to {path}...")
-        with open(path, 'wb') as f:
-            pickle.dump(self, f)
+        print()
+
+    def save_embeddings(self, file_prefix, start_idx, end_idx):
+        file_name = f"{file_prefix}_{start_idx}-{end_idx}.npy"
+        np.save(file_name, self.embeddings[start_idx:end_idx])
+        print(f"Saved embeddings to file: {file_name}")
+
     
     def save_data(self, path: str = PATH_TO_DATASET_DICT_PKL):
         # Save the data to a pickle file
@@ -310,17 +332,42 @@ class Dataset:
             "metadata": self.metadata,
             "embedding_strings": self.embedding_strings,
             "embeddings_metadata_index": self.embeddings_metadata_index,
-            "embeddings": self.embeddings.astype(np.float32),
+            "embeddings": self.embeddings.astype(np.float32) if type(self.embeddings) is np.ndarray else None,
             "articles_count": self.articles_count,
             "total_articles_count": self.total_articles_count,
             "total_char_count": self.total_char_count,
             "total_word_count": self.total_word_count,
             "total_sentence_count": self.total_sentence_count,
-            "total_block_count": self.total_block_count
+            "total_block_count": self.total_block_count,
+            "starting_article_index": self.starting_article_index
         }
         with open(path, 'wb') as f:
             pickle.dump(data, f)
-
+            
+    def load_data(self, path: str, starting_article_index: int = 0):
+        """
+        Load the data from a pickle file.
+        
+        Args:
+            path (str): The path to the pickle file.
+        """
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+        
+        self.metadata = data["metadata"]
+        self.embedding_strings = data["embedding_strings"]
+        self.embeddings_metadata_index = data["embeddings_metadata_index"]
+        self.embeddings = data["embeddings"]
+        self.articles_count = data["articles_count"]
+        self.total_articles_count = data["total_articles_count"]
+        self.total_char_count = data["total_char_count"]
+        self.total_word_count = data["total_word_count"]
+        self.total_sentence_count = data["total_sentence_count"]
+        self.total_block_count = data["total_block_count"]
+        if 'starting_article_index' in data:
+            self.starting_article_index = data["starting_article_index"]
+        else:
+            self.starting_article_index = starting_article_index
 
 def get_authors_list(authors_string: str) -> List[str]:
     """
@@ -398,4 +445,3 @@ if __name__ == "__main__":
     dataset.save_class(PATH_TO_DATASET.resolve())
     # # dataset = pickle.load(open("dataset.pkl", "rb"))
     """
-    

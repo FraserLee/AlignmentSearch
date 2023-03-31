@@ -1,4 +1,5 @@
 import openai
+
 """
 import config
 from assistant.semantic_search import AlignmentSearch
@@ -8,6 +9,10 @@ openai.api_key = config.OPENAI_API_KEY
 
 from settings import PATH_TO_RAW_DATA, PATH_TO_DATASET, EMBEDDING_MODEL, LEN_EMBEDDINGS
 """
+
+from dotenv import load_dotenv
+load_dotenv()
+
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -33,6 +38,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+
 def load_rawdata_into_pkl():
     """with open(PATH_TO_DATASET, 'rb') as f:
     dataset = pickle.load(f)
@@ -51,7 +57,7 @@ def load_rawdata_into_pkl():
         "ebook", 
         "https://qualiacomputing.com", 
         "alignment forum", 
-        "lesswrong", 
+        # "lesswrong", 
         "manual", 
         "arxiv", 
         "https://deepmindsafetyresearch.medium.com/", 
@@ -91,8 +97,8 @@ def load_rawdata_into_pkl():
     print(dataset.total_block_count)
     print(dataset.articles_count)
     
-    dataset.get_embeddings()
-    dataset.save_data()
+    # dataset.get_embeddings()
+    # dataset.save_data()
     
 @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(4))
 def get_embedding(text: str) -> np.ndarray:
@@ -156,8 +162,14 @@ def plot_likelihood(embeddings, num_buckets=200):
 
 
 if __name__ == "__main__":
-    # load_rawdata_into_pkl()
+    load_rawdata_into_pkl()
     # print_out_dataset_stuff()
     
-    with open(PATH_TO_DATASET_DICT_PKL, 'rb') as f:
-        dataset = pickle.load(f)
+    # with open(PATH_TO_DATASET_DICT_PKL, 'rb') as f:
+    #     dataset = pickle.load(f)
+
+
+
+
+
+

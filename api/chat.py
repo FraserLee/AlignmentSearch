@@ -12,6 +12,8 @@ EMBEDDING_MODEL = "text-embedding-ada-002"
 COMPLETIONS_MODEL = "gpt-3.5-turbo"
 # COMPLETIONS_MODEL = "gpt-4"
 
+STANDARD_K = 20 if COMPLETIONS_MODEL == 'gpt-4' else 10
+
 # parameters
 
 # NOTE: All this is approximate, there's bits I'm intentionally not counting. Leave a buffer beyond what you might expect.
@@ -53,7 +55,7 @@ def construct_prompt(query: str, history: List[Dict[str, str]], context: List[Bl
     #     {"role": "assistant", "content": "What is a man? A miserable little pile of secrets. But enough talk... Have at you!"},
     # ]
 
-    source_prompt = "You are a helpful assistant knowledgeable about AI Alignment and Saftey. " \
+    source_prompt = "You are a helpful assistant knowledgeable about AI Alignment and Safety. " \
         "Please give a clear and coherent answer to the user's questions.(written after \"Q:\") " \
         "using the following sources. Each source is labeled with a letter. Feel free to " \
         "use the sources in any order, and try to use multiple sources in your answers.\n\n"
@@ -80,8 +82,6 @@ def construct_prompt(query: str, history: List[Dict[str, str]], context: List[Bl
             "are invalid."
 
     prompt.append({"role": "system", "content": source_prompt.strip()})
-
-
 
 
     # Write a version of the last 10 messages into history, cutting things off when we hit the token limit.
@@ -114,19 +114,20 @@ def construct_prompt(query: str, history: List[Dict[str, str]], context: List[Bl
 
     return prompt
 
-# ------------------------------------------------------------------------------
+# ------------------------------- completion code -------------------------------
 
-# returns either (True, reply string, embeddings) or (False, error message string, None)
-def talk_to_robot(dataset_dict, query: str, history: List[Dict[str, str]], k: int = 10):
+# returns either (True, reply string, top_k_blocks)) or (False, error message string, None)
+def talk_to_robot(index, query: str, history: List[Dict[str, str]], k: int = STANDARD_K):
 
 
     # 1. Find the most relevant blocks from the Alignment Research Dataset
-    top_k_blocks: List[Block] = get_top_k_blocks(dataset_dict, query, k)
+    top_k_blocks = get_top_k_blocks(index, query, k)
 
 
     # 2. Generate a prompt
     prompt = construct_prompt(query, history, top_k_blocks)
 
+    
     if DEBUG_PRINT:
         print('\n' * 10)
         print(" ------------------------------ prompt: -----------------------------")

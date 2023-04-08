@@ -16,9 +16,11 @@ const Header: React.FC<{page: "index" | "semantic"}> = ({page}) => {
         
     return (<>
                 <div className="flex my-4">
-                    <h1 className="flex-1 my-0">AlignmentSearch</h1>
+                    <h1 className="flex-1 my-0">Alignment Search</h1>
                     {sidebar}
                 </div>
+
+                <div className="text-gray-500" >
                 <p>
                     This site has been created by McGill students Henri Lemoine, Fraser Lee, and Thomas Lemoine
                     as an attempt to create a "conversational FAQ" that can answer questions about AI alignment.
@@ -37,6 +39,7 @@ const Header: React.FC<{page: "index" | "semantic"}> = ({page}) => {
                     We hope that it can be a useful tool for the community, and we're eager to hear feedback and suggestions.
                     For a technical report on our implemention, see our <a href="https://www.lesswrong.com/posts/bGn9ZjeuJCg7HkKBj/introducing-alignmentsearch-an-ai-alignment-informed">LessWrong post</a>.
                 </p>
+                </div>
             </>);
 };
 

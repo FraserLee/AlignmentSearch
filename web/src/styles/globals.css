@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+body{
+  @apply min-h-screen; /* full height of viewport */
+  font-family: warnock-pro, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;  
+}
+
 h1 {
   @apply text-4xl font-bold my-4;
 }
@@ -25,12 +30,6 @@ a {
 
 p {
   @apply my-2;
-}
-
-button {
-  @apply bg-white hover:bg-gray-300 px-0.5 py-0 w-fit h-fit;
-  @apply border border-gray-300;
-  @apply text-gray-700;
 }
 
 ol {

@@ -25,10 +25,11 @@ const SearchBox: React.FC<{search: (
         <form className="flex mb-2" onSubmit={async (e) => {
             e.preventDefault();
             search(query, setQuery, setLoading);
-        }}>
+        }}
+        >
 
             <TextareaAutosize
-                className="border border-gray-300 px-1 flex-1 resize-none"
+                className="py-3 border border-gray-400 rounded  shadow px-1 flex-1 resize-none"
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -41,11 +42,13 @@ const SearchBox: React.FC<{search: (
                         if (query.trim() !== "") search(query, setQuery, setLoading);
                     }
                 }}
+                placeholder="What is AI Alignment?"
             />
-            <button className="ml-2" type="submit" disabled={loading}>
-                {loading ? "Loading..." : "Search"}
+            <button className="ml-2 w-40 bg-white hover:bg-gray-100 border rounded shadow border-gray-400" type="submit" disabled={loading}>
+                {loading ? "Loading..." : " 🔎 Search"}
             </button>
         </form>
+        
     </>);
 };
 

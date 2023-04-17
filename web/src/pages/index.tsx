@@ -5,8 +5,8 @@ import React from "react";
 import { type NextPage } from "next";
 import { useState } from "react";
 
-import Header from "../header";
-import SearchBox from "../searchbox";
+import Header from "../components/header";
+import SearchBox from "../components/searchbox";
 
 type Citation = {
     title: string;

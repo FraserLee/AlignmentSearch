@@ -21,11 +21,13 @@ else:
 
 
 OPENAI_API_KEY   = os.environ.get('OPENAI_API_KEY')
+OPENAI_ORG       = os.environ.get('OPENAI_ORG')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
 LOGGING_URL      = os.environ.get('LOGGING_URL')
 PINECONE_INDEX   = None
 
 openai.api_key = OPENAI_API_KEY # non-optional
+openai.organization = OPENAI_ORG
 
 # Only init pinecone if we have an env value for it.
 if PINECONE_API_KEY is not None and PINECONE_API_KEY != "":

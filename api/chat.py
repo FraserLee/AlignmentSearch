@@ -132,10 +132,29 @@ def talk_to_robot_internal(index, query: str, history: List[Dict[str, str]], k: 
         yield {"state": "loading", "phase": "prompt"}
         prompt = construct_prompt(query, history, top_k_blocks)
 
-        # 3. Count number of tokens left for completion (-50 for a buffer)
+        # 3. Run both the standalone query and the full prompt through
+        # moderation to see if it will be accepted by OpenAI's api
+
+        prompt_string = '\n\n'.join([message["content"] for message in prompt])
+        mod_res = openai.Moderation.create( input = [ query, prompt_string ])
+
+        if any(map(lambda x: x["flagged"], mod_res["results"])):
+
+            # this is a biiig ask of a discord webhook - put most important
+            # info at start such that it's more likely to not be cut off
+            log('-' * 80)
+            log("MODERATION REJECTED")
+            log("MODERATION RESPONSE:\n\n" + json.dumps(mod_res["results"], indent=2))
+            log("REJECTED QUERY: " + query)
+            log("REJECTED PROMPT:\n\n" + prompt_string)
+            log('-' * 80)
+
+            raise ValueError("This conversation was rejected by OpenAI's moderation filter. Sorry.")
+
+        # 4. Count number of tokens left for completion (-50 for a buffer)
         max_tokens_completion = NUM_TOKENS - sum([len(ENCODER.encode(message["content"]) + ENCODER.encode(message["role"])) for message in prompt]) - 50
 
-        # 4. Answer the user query
+        # 5. Answer the user query
         yield {"state": "loading", "phase": "llm"}
         t1 = time.time()
         response = ''
